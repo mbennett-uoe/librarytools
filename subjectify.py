@@ -3,7 +3,7 @@
 
 """subjectify.py: A tool to retrieve DDC/LCC identifiers from OCLC's Classify API
 
-Version: 1.4
+Version: 1.5
 Author: Mike Bennett <mike.bennett@ed.ac.uk>
 
 Python library requirements: requests
@@ -16,7 +16,7 @@ new CSV file.
 Usage: 'subjectify.py infile.csv outfile.csv'
 """
 
-import sys, os, csv, argparse  # standard python libs
+import sys, os, csv, time, argparse  # standard python libs
 import xml.etree.ElementTree as ET  # standard python libs
 import requests  # external dependency
 
@@ -372,6 +372,12 @@ For other formats:
         print("Processing record %s" % (index+1))
         row_out = process_row(row, columns)
         records_out.append(row_out)
+
+        # Rate limiter, sleep 5s every 10 records and 5m every 250
+        if index % 10 == 0:
+            time.sleep(5)
+        if index % 250 == 0:
+            time.sleep(355)
 
     print("Finished processing, writing to file %s" % args.outfile)
     write_data(args.outfile, records_out, output_fields)
