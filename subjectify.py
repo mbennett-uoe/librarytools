@@ -186,7 +186,7 @@ def resolve_multiple(record_xml):
         return wi
 
 
-def process_row(row):
+def process_row(row, columns):
     """Process a row from the csv file. Main per-record logic"""
 
     # Determine whether we are matching against ISBN/ISSN or bibliographic data
@@ -232,6 +232,21 @@ def process_row(row):
                 return None
 
 
+def find_field(field, columns):
+    """Attempt to find a potential field from the CSVs columns"""
+    columns_lower = [data.lower() for data in columns]
+
+    if field.lower() in columns_lower:
+        # Easy-peasy! :D
+        return field
+
+    potentials = [column for column in columns if field.lower() in column.lower()]
+    if len(potentials) == 1:
+        return potentials[0]
+
+    return None
+
+
 def vprint(text):
     """Print a line of text to screen only if -v flag was set"""
     if verbose:
@@ -245,7 +260,7 @@ if __name__ == '__main__':
     
 Expects an input CSV of 4 columns: ISBN,ISSN,Author,Title
 For other formats:
-    -f will attempt to work out the right columns and will prompt for assistance if needed
+    -f will search for the best matches amongst the fields from the first line of the file
     -c allows you to provide column numbers for the data""")
 
     parser.add_argument("-v", "--verbose", action="store_true", help="Display extra messages (search details etc)")
@@ -276,7 +291,25 @@ For other formats:
 
     if args.fields:
         records_in = load_data(args.infile, fields="file", hasheader=True)  # -f flag implies there must be a header!
-        # TODO: Field parsing, guessing and confirming
+        # Lets see if we can find the fields automatically
+        file_fields = records_in[0].keys()
+        potentials = {"ISBN": None,
+                      "ISSN": None,
+                      "Title": None,
+                      "Author": None}
+        for item in potentials:
+            potentials[item] = find_field(item, file_fields)
+
+        print("Best match columns:")
+        for item, val in potentials.iteritems():
+            print("%s: %s" % (item, val))
+        print()
+        answer = raw_input("Use these columns? (Y/N): ")
+        if answer in ["y", "Y"]:
+            columns = [potentials["ISBN"], potentials["ISSN"], potentials["Title"], potentials["Author"]]
+        else:
+            sys.exit()
+
     elif args.columns:
         records_in = load_data(args.infile, fields="none", hasheader=has_header)
         # Type the inputs
@@ -305,6 +338,7 @@ For other formats:
         else:
             sys.exit()
     else:
+        # Maybe could add a confirmation here in line with the other modes?
         records_in = load_data(args.infile, fields="default", hasheader=has_header)
         columns = default_fields
 
