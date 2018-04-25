@@ -57,8 +57,10 @@ def write_data(outfile, records, fields):
     """Write the data in the state object to file and return boolean success indicator"""
     try:
         with open(outfile, "w") as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=fields)
-            # writer.writeheader()
+            if fields:
+                writer = csv.DictWriter(csvfile, fieldnames=fields)
+            else:
+                writer = csv.writer(csvfile)
             writer.writerows(records)
             return True
     except:
@@ -304,6 +306,8 @@ For other formats:
 
     if args.fields:
         records_in = load_data(args.infile, fields="file", skipheader=False)  # -f flag implies there must be a header!
+        output_fields = records_in[0].keys()
+
         # Lets see if we can find the fields automatically
         file_fields = records_in[0].keys()
         potentials = {"ISBN": None,
@@ -325,6 +329,7 @@ For other formats:
 
     elif args.columns:
         records_in = load_data(args.infile, fields="none", skipheader=skip_header)
+        output_fields = None
         # Type the inputs
         columns = []
         for column in args.columns:
@@ -353,6 +358,7 @@ For other formats:
     else:
         # Maybe could add a confirmation here in line with the other modes?
         records_in = load_data(args.infile, fields="default", skipheader=skip_header)
+        output_fields = default_fields
         columns = default_fields
 
     print("Loaded %s records" % len(records_in))
@@ -364,6 +370,6 @@ For other formats:
         records_out.append(row)
 
     print("Finished processing, writing to file %s" % args.outfile)
-    write_data(args.outfile, records_out)
+    write_data(args.outfile, records_out, output_fields)
 
     print("Done, goodbye!")
