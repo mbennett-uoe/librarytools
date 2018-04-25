@@ -222,7 +222,10 @@ def process_row(row, columns):
         return None
     elif status in [0, 2]:
         # Single work record, go to extraction
-        row["ddc"], row["lcc"] = extract_ids(record)
+        if type(row) == dict:
+            row["ddc"], row["lcc"] = extract_ids(record)
+        elif type(row) == list:
+            row.extend(extract_ids(record))
         return row
 
     elif status == 4:
@@ -233,7 +236,10 @@ def process_row(row, columns):
             parent_status = extract_response(parent_record)
             if parent_status in [0, 2]:
                 # Resolved, extract the IDs
-                row["ddc"], row["lcc"] = extract_ids(parent_record)
+                if type(row) == dict:
+                    row["ddc"], row["lcc"] = extract_ids(record)
+                elif type(row) == list:
+                    row.extend(extract_ids(record))
                 return row
             else:
                 return None
@@ -244,8 +250,8 @@ def find_field(field, columns):
     columns_lower = [data.lower() for data in columns]
 
     if field.lower() in columns_lower:
-        # Easy-peasy! :D
-        return field
+        # Easy-peasy! Just make sure we return the column name from file in case of caps differences :D
+        return columns[columns_lower.index(field.lower())]
 
     potentials = [column for column in columns if field.lower() in column.lower()]
     if len(potentials) == 1:
@@ -338,7 +344,7 @@ For other formats:
         print("ISSN: %s" % records_in[0][columns[1]])
         print("Author: %s" % records_in[0][columns[2]])
         print("Title: %s" % records_in[0][columns[3]])
-        print()
+        print("")
         answer = raw_input("Is this correct? (Y/N): ")
         if answer in ["y", "Y"]:
             pass
