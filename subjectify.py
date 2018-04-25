@@ -3,7 +3,7 @@
 
 """subjectify.py: A tool to retrieve DDC/LCC identifiers from OCLC's Classify API
 
-Version: 1.3
+Version: 1.4
 Author: Mike Bennett <mike.bennett@ed.ac.uk>
 
 Python library requirements: requests
@@ -48,8 +48,8 @@ def load_data(infile, fields="default", skipheader = False):
             records_in = records_in[1:]
 
         return records_in
-    except Exception as e:
-        print e
+
+    except:
         return None
 
 
@@ -57,8 +57,9 @@ def write_data(outfile, records, fields):
     """Write the data in the state object to file and return boolean success indicator"""
     try:
         with open(outfile, "w") as csvfile:
-            if fields:
+            if fields is not None:
                 writer = csv.DictWriter(csvfile, fieldnames=fields)
+                writer.writeheader()
             else:
                 writer = csv.writer(csvfile)
             writer.writerows(records)
@@ -208,20 +209,20 @@ def process_row(row, columns):
             data = row[columns[3]]
     if row[columns[1]] != "":  # issn
         search_type = "issn"
-        data = row[colummns[1]]
+        data = row[columns[1]]
     if row[columns[0]] != "":  # isbn
         search_type = "isbn"
         data = row[columns[0]]
 
     if search_type is None:
-        return None
+        return row
     # Make the first query and check the status
     record = oclc_search(search_type, data)
     status = extract_response(record)
 
     if status is None or status >= 100:
-        # Error or no input
-        return None
+        # Error or no input, return the unaltered input row
+        return row
     elif status in [0, 2]:
         # Single work record, go to extraction
         if type(row) == dict:
@@ -239,9 +240,9 @@ def process_row(row, columns):
             if parent_status in [0, 2]:
                 # Resolved, extract the IDs
                 if type(row) == dict:
-                    row["ddc"], row["lcc"] = extract_ids(record)
+                    row["ddc"], row["lcc"] = extract_ids(parent_record)
                 elif type(row) == list:
-                    row.extend(extract_ids(record))
+                    row.extend(extract_ids(parent_record))
                 return row
             else:
                 return None
@@ -306,8 +307,7 @@ For other formats:
 
     if args.fields:
         records_in = load_data(args.infile, fields="file", skipheader=False)  # -f flag implies there must be a header!
-        output_fields = records_in[0].keys()
-
+        output_fields = records_in[0].keys() + ["ddc", "lcc"]
         # Lets see if we can find the fields automatically
         file_fields = records_in[0].keys()
         potentials = {"ISBN": None,
@@ -320,8 +320,7 @@ For other formats:
         print("Best match columns:")
         for item, val in potentials.iteritems():
             print("%s: %s" % (item, val))
-        print()
-        answer = raw_input("Use these columns? (Y/N): ")
+        answer = raw_input("\nUse these columns? (Y/N): ")
         if answer in ["y", "Y"]:
             columns = [potentials["ISBN"], potentials["ISSN"], potentials["Title"], potentials["Author"]]
         else:
@@ -349,8 +348,7 @@ For other formats:
         print("ISSN: %s" % records_in[0][columns[1]])
         print("Author: %s" % records_in[0][columns[2]])
         print("Title: %s" % records_in[0][columns[3]])
-        print("")
-        answer = raw_input("Is this correct? (Y/N): ")
+        answer = raw_input("\nIs this correct? (Y/N): ")
         if answer in ["y", "Y"]:
             pass
         else:
@@ -358,16 +356,16 @@ For other formats:
     else:
         # Maybe could add a confirmation here in line with the other modes?
         records_in = load_data(args.infile, fields="default", skipheader=skip_header)
-        output_fields = default_fields
+        output_fields = default_fields + ["ddc", "lcc"]
         columns = default_fields
 
     print("Loaded %s records" % len(records_in))
 
     records_out = []
     for index, row in enumerate(records_in):
-        print("Processing record %s" % index)
+        print("Processing record %s" % (index+1))
         row_out = process_row(row, columns)
-        records_out.append(row)
+        records_out.append(row_out)
 
     print("Finished processing, writing to file %s" % args.outfile)
     write_data(args.outfile, records_out, output_fields)
