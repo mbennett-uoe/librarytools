@@ -3,8 +3,10 @@
 
 """subjectify.py: A tool to retrieve DDC/LCC identifiers from OCLC's Classify API
 
-Version: 1.0
+Version: 1.1
 Author: Mike Bennett <mike.bennett@ed.ac.uk>
+
+Python library requirements: requests
 
 Subjectify takes a CSV containing ISBN/ISSNs, and optionally Author/Title data and
 performs a series of lookups against the OCLC Classify2 API to retrieve Dewey Decimal
@@ -14,20 +16,23 @@ new CSV file.
 Usage: 'subjectify.py infile.csv outfile.csv'
 """
 
-import sys, os, csv, requests
-import xml.etree.ElementTree as ET
+import sys, os, csv  # standard python libs
+import xml.etree.ElementTree as ET  # standard python libs
+import requests  # external dependency
 
-endpoint_url = "http://classify.oclc.org/classify2/Classify" # OCLC Classify API URL
+endpoint_url = "http://classify.oclc.org/classify2/Classify"  # OCLC Classify API URL
 base_querystring = "?summary=true&maxRecs=1"
-ns = {"classify": "http://classify.oclc.org"} # xml namespace
-fields = ["id","isbn","issn","author","title","ddc","lcc"] # csv fields
-records_in = [] # state data
-records_out = [] # state data
+ns = {"classify": "http://classify.oclc.org"}  # xml namespace
+fields = ["id", "isbn", "issn", "author", "title", "ddc", "lcc"]  # default csv fields
+records_in = []  # state data
+records_out = []  # state data
+
 
 def load_data(infile):
     """Read a CSV file into the state object and return count of loaded records"""
     # Make sure file exists
-    if not os.path.isfile(infile): sys.exit("Fatal Error: Input file does not exist!")
+    if not os.path.isfile(infile):
+        sys.exit("Fatal Error: Input file does not exist!")
     # Attempt to open and read file
     try:
         with open(infile, "r") as csvfile:
@@ -46,11 +51,12 @@ def write_data(outfile):
     try:
         with open(outfile, "w") as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=fields)
-            #writer.writeheader()
+            # writer.writeheader()
             writer.writerows(records_out)
             return True
     except:
         return False
+
 
 def get_tree(xmldata):
     """Takes string or ET and returns an ET"""
@@ -63,6 +69,7 @@ def get_tree(xmldata):
         return xmldata
     else:
         return None
+
 
 def oclc_search(searchtype, data):
     """Query OCLC endpoint
@@ -84,11 +91,14 @@ def oclc_search(searchtype, data):
 
     # Basic sanity checks and query forming
     if searchtype in ['isbn', 'issn', 'wi']:
-        if type(data) != str: return False
+        if type(data) != str:
+            return False
         query = "%s=%s" % (searchtype, data)
     elif searchtype == "bib":
-        if type(data) != tuple: return False
-        if len(data) != 2: return False
+        if type(data) != tuple:
+            return False
+        if len(data) != 2:
+            return False
         author, title = data
         query = "author=\"%s\"&title=\"%s\"" % (author, title)
     else:
@@ -105,6 +115,7 @@ def oclc_search(searchtype, data):
             return None
     except:
         return None
+
 
 def extract_response(record_xml):
     """Parse an OCLC Classify XML record, extract and return the response code
@@ -130,6 +141,7 @@ def extract_response(record_xml):
     else:
         return int(response_code.attrib["code"])
 
+
 def extract_ids(record_xml):
     """Parse an OCLC Classify XML record for a single work and extract DDC/LLC and the Work Identifier (wi)
     Takes a String or XML ETree object and returns a tuple of strings (<ddc id>, <llc id>) or None
@@ -145,9 +157,10 @@ def extract_ids(record_xml):
     if code not in [0, 2]:
         return None
     else:
-        ddc = tree.find("classify:recommendations/classify:ddc/classify:mostPopular",ns).attrib["nsfa"]
-        lcc = tree.find("classify:recommendations/classify:lcc/classify:mostPopular",ns).attrib["nsfa"]
-        return (ddc, lcc)
+        ddc = tree.find("classify:recommendations/classify:ddc/classify:mostPopular", ns).attrib["nsfa"]
+        lcc = tree.find("classify:recommendations/classify:lcc/classify:mostPopular", ns).attrib["nsfa"]
+        return ddc, lcc
+
 
 def resolve_multiple(record_xml):
     """Parse an OCLC Classify XML record for a multiple-work response, extract and return the Work Identifier (wi)"""
@@ -164,6 +177,7 @@ def resolve_multiple(record_xml):
     else:
         wi = tree.find("classify:works/classify:work[0]", ns).attrib["wi"]
         return wi
+
 
 def process_row(row):
     """Process a row from the csv file. Main per-record logic"""
@@ -192,7 +206,7 @@ def process_row(row):
     if status is None or status >= 100:
         # Error or no input
         return None
-    elif status in [0,2]:
+    elif status in [0, 2]:
         # Single work record, go to extraction
         row["ddc"], row["lcc"] = extract_ids(record)
         return row
