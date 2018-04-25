@@ -56,12 +56,12 @@ def load_data(infile, fields="default", skipheader = False):
 def write_data(outfile, records, fields):
     """Write the data in the state object to file and return boolean success indicator"""
     try:
-        with open(outfile, "w") as csvfile:
+        with open(outfile, "wb") as csvfile:
             if fields is not None:
-                writer = csv.DictWriter(csvfile, fieldnames=fields)
+                writer = csv.DictWriter(csvfile, fieldnames=fields, lineterminator="\n")
                 writer.writeheader()
             else:
-                writer = csv.writer(csvfile)
+                writer = csv.writer(csvfile, lineterminator="\n")
             writer.writerows(records)
             return True
     except:
@@ -170,8 +170,15 @@ def extract_ids(record_xml):
     if code not in [0, 2]:
         return None
     else:
-        ddc = tree.find("classify:recommendations/classify:ddc/classify:mostPopular", ns).attrib["nsfa"]
-        lcc = tree.find("classify:recommendations/classify:lcc/classify:mostPopular", ns).attrib["nsfa"]
+        try:
+            ddc = tree.find("classify:recommendations/classify:ddc/classify:mostPopular", ns).attrib["nsfa"]
+        except:
+            ddc = ""
+        try:
+            lcc = tree.find("classify:recommendations/classify:lcc/classify:mostPopular", ns).attrib["nsfa"]
+        except:
+            lcc = ""
+
         return ddc, lcc
 
 
@@ -199,18 +206,17 @@ def process_row(row, columns):
     # Start from least preferable and check each type, keeping current best in state variable
     search_type = None
     data = None
-
-    if row[columns[3]] != "":  # title
-        if row[columns[2]] != "":  # author
+    if columns[3] and row[columns[3]] != "":  # title
+        if columns[2] and row[columns[2]] != "":  # author
             search_type = "bib"
             data = (row[columns[3]], row[columns[2]])
         else:
             search_type = "title"
             data = row[columns[3]]
-    if row[columns[1]] != "":  # issn
+    if columns[1] and row[columns[1]] != "":  # issn
         search_type = "issn"
         data = row[columns[1]]
-    if row[columns[0]] != "":  # isbn
+    if columns[0] and row[columns[0]] != "":  # isbn
         search_type = "isbn"
         data = row[columns[0]]
 
@@ -257,7 +263,7 @@ def find_field(field, columns):
         return columns[columns_lower.index(field.lower())]
 
     potentials = [column for column in columns if field.lower() in column.lower()]
-    if len(potentials) == 1:
+    if len(potentials) >= 1:
         return potentials[0]
 
     return None
@@ -312,8 +318,8 @@ For other formats:
         file_fields = records_in[0].keys()
         potentials = {"ISBN": None,
                       "ISSN": None,
-                      "Title": None,
-                      "Author": None}
+                      "Author": None,
+                      "Title": None}
         for item in potentials:
             potentials[item] = find_field(item, file_fields)
 
@@ -322,7 +328,7 @@ For other formats:
             print("%s: %s" % (item, val))
         answer = raw_input("\nUse these columns? (Y/N): ")
         if answer in ["y", "Y"]:
-            columns = [potentials["ISBN"], potentials["ISSN"], potentials["Title"], potentials["Author"]]
+            columns = [potentials["ISBN"], potentials["ISSN"], potentials["Author"], potentials["Title"]]
         else:
             sys.exit()
 
