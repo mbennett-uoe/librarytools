@@ -27,7 +27,7 @@ default_fields = ["isbn", "issn", "author", "title"]  # default csv fields
 verbose = False  # was program started with -v?
 
 
-def load_data(infile, fields="default", hasheader = False):
+def load_data(infile, fields="default", skipheader = False):
     """Read a CSV file and return a list of rows"""
     # Make sure file exists
     if not os.path.isfile(infile):
@@ -44,7 +44,7 @@ def load_data(infile, fields="default", hasheader = False):
             records_in = []
             for row in reader:
                 records_in.append(row)
-        if hasheader:
+        if skipheader:
             records_in = records_in[1:]
 
         return records_in
@@ -298,12 +298,12 @@ For other formats:
 
     if args.skip:
         print("Skipping header row")
-        has_header = True
+        skip_header = True
     else:
-        has_header = False
+        skip_header = False
 
     if args.fields:
-        records_in = load_data(args.infile, fields="file", hasheader=True)  # -f flag implies there must be a header!
+        records_in = load_data(args.infile, fields="file", skipheader=False)  # -f flag implies there must be a header!
         # Lets see if we can find the fields automatically
         file_fields = records_in[0].keys()
         potentials = {"ISBN": None,
@@ -324,7 +324,7 @@ For other formats:
             sys.exit()
 
     elif args.columns:
-        records_in = load_data(args.infile, fields="none", hasheader=has_header)
+        records_in = load_data(args.infile, fields="none", skipheader=skip_header)
         # Type the inputs
         columns = []
         for column in args.columns:
@@ -352,14 +352,14 @@ For other formats:
             sys.exit()
     else:
         # Maybe could add a confirmation here in line with the other modes?
-        records_in = load_data(args.infile, fields="default", hasheader=has_header)
+        records_in = load_data(args.infile, fields="default", skipheader=skip_header)
         columns = default_fields
 
     print("Loaded %s records" % len(records_in))
 
     records_out = []
-    for row in records_in:
-        print("Processing record %s" % row["id"])
+    for index, row in enumerate(records_in):
+        print("Processing record %s" % index)
         row_out = process_row(row, columns)
         records_out.append(row)
 
