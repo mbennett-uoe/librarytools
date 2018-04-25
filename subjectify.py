@@ -23,36 +23,39 @@ import requests  # external dependency
 endpoint_url = "http://classify.oclc.org/classify2/Classify"  # OCLC Classify API URL
 base_querystring = "?summary=true&maxRecs=1"
 ns = {"classify": "http://classify.oclc.org"}  # xml namespace
-fields = ["id", "isbn", "issn", "author", "title", "ddc", "lcc"]  # default csv fields
-records_in = []  # state data
-records_out = []  # state data
+fields = ["isbn", "issn", "author", "title"]  # default csv fields
+verbose = False  # was program started with -v?
 
 
-def load_data(infile):
-    """Read a CSV file into the state object and return count of loaded records"""
+def load_data(infile, header="default"):
+    """Read a CSV file and return a list of rows"""
     # Make sure file exists
     if not os.path.isfile(infile):
         sys.exit("Fatal Error: Input file does not exist!")
     # Attempt to open and read file
     try:
         with open(infile, "r") as csvfile:
-            reader = csv.DictReader(csvfile, fieldnames=fields, restval=None)
-            count = 0
+            if header == "file":
+                reader = csv.DictReader(csvfile)
+            elif header == "default":
+                reader = csv.DictReader(csvfile, fields=fields)
+            elif header == "none":
+                reader = csv.reader(csvfile)
+            records_in = []
             for row in reader:
                 records_in.append(row)
-                count += 1
-        return count
+        return records_in
     except:
         return 0
 
 
-def write_data(outfile):
+def write_data(outfile, records, fields):
     """Write the data in the state object to file and return boolean success indicator"""
     try:
         with open(outfile, "w") as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=fields)
             # writer.writeheader()
-            writer.writerows(records_out)
+            writer.writerows(records)
             return True
     except:
         return False
@@ -225,6 +228,12 @@ def process_row(row):
                 return None
 
 
+def vprint(text):
+    """Print a line of text to screen only if -v flag was set"""
+    if verbose:
+        print(text)
+
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -236,26 +245,41 @@ For other formats:
     -c allows you to provide column numbers for the data""")
 
     parser.add_argument("-v", "--verbose", action="store_true", help="Display extra messages (search details etc)")
-    parser.add_argument("-f", "--fields", action="store_true",
+    fields = parser.add_mutually_exclusive_group()
+    fields.add_argument("-f", "--fields", action="store_true",
                         help="Read field names from first line of CSV file and attempt to automagically determine \
                              correct columns")
-    parser.add_argument("-c", dest="columns", nargs=4, metavar=('0', '1', '2', '3'),
+    fields.add_argument("-c", dest="columns", nargs=4, metavar=('0', '1', '2', '3'),
                         help="Supply 0-based column numbers for ISBN, ISSN, Author and Title. If particular data \
                              not present, use 'None'")
     parser.add_argument("infile", help="Input CSV file")
     parser.add_argument("outfile", help="Output CSV file")
     args = parser.parse_args()
 
-    print("Loading data from %s" % infile)
-    count = load_data(infile)
-    print("Loaded %s records" % count)
+    print("subjectify.py: A tool to retrieve DDC/LCC identifiers from OCLC's Classify API\n")
+    if args.verbose:
+        print("Enabling verbose mode")
+        verbose = True
 
+    print("Loading data from %s" % args.infile)
+    if args.f:
+        records_in = load_data(args.infile, header="file")
+        # TODO: Field parsing, guessing and confirming
+    elif args.c:
+        records_in = load_data(args.infile, header="none")
+        # TODO: Pick the fields, confirm(?), add to data structure
+    else:
+        records_in = load_data(args.infile, header="default")
+
+    print("Loaded %s records" % len(records_in))
+
+    records_out = []
     for row in records_in:
         print("Processing record %s" % row["id"])
         row_out = process_row(row)
         records_out.append(row)
 
-    print("Finished processing, writing to file %s" % outfile)
-    write_data(outfile)
+    print("Finished processing, writing to file %s" % args.outfile)
+    write_data(args.outfile, records_out)
 
     print("Done, goodbye!")
