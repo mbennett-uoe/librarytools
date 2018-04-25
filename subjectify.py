@@ -375,9 +375,13 @@ For other formats:
 
         # Rate limiter, sleep 5s every 10 records and 5m every 250
         if index % 10 == 0:
-            time.sleep(5)
-        if index % 250 == 0:
-            time.sleep(355)
+            if index % 250 == 0:
+                print("Rate limiter - sleeping 5 minutes")
+                time.sleep(355)
+            else:
+                print("Rate limiter - sleeping 5 seconds")
+                time.sleep(5)
+
 
     print("Finished processing, writing to file %s" % args.outfile)
     write_data(args.outfile, records_out, output_fields)
