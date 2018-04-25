@@ -23,11 +23,11 @@ import requests  # external dependency
 endpoint_url = "http://classify.oclc.org/classify2/Classify"  # OCLC Classify API URL
 base_querystring = "?summary=true&maxRecs=1"
 ns = {"classify": "http://classify.oclc.org"}  # xml namespace
-fields = ["isbn", "issn", "author", "title"]  # default csv fields
+default_fields = ["isbn", "issn", "author", "title"]  # default csv fields
 verbose = False  # was program started with -v?
 
 
-def load_data(infile, header="default"):
+def load_data(infile, fields="default", hasheader = False):
     """Read a CSV file and return a list of rows"""
     # Make sure file exists
     if not os.path.isfile(infile):
@@ -35,18 +35,22 @@ def load_data(infile, header="default"):
     # Attempt to open and read file
     try:
         with open(infile, "r") as csvfile:
-            if header == "file":
+            if fields == "file":
                 reader = csv.DictReader(csvfile)
-            elif header == "default":
-                reader = csv.DictReader(csvfile, fields=fields)
-            elif header == "none":
+            elif fields == "default":
+                reader = csv.DictReader(csvfile, fieldnames=default_fields)
+            elif fields == "none":
                 reader = csv.reader(csvfile)
             records_in = []
             for row in reader:
                 records_in.append(row)
+        if hasheader:
+            records_in = records_in[1:]
+
         return records_in
-    except:
-        return 0
+    except Exception as e:
+        print e
+        return None
 
 
 def write_data(outfile, records, fields):
@@ -252,6 +256,7 @@ For other formats:
     fields.add_argument("-c", dest="columns", nargs=4, metavar=('0', '1', '2', '3'),
                         help="Supply 0-based column numbers for ISBN, ISSN, Author and Title. If particular data \
                              not present, use 'None'")
+    parser.add_argument("-s", "--skip", action="store_true", help="Treat first line of input CSV as a header and skip")
     parser.add_argument("infile", help="Input CSV file")
     parser.add_argument("outfile", help="Output CSV file")
     args = parser.parse_args()
@@ -262,21 +267,53 @@ For other formats:
         verbose = True
 
     print("Loading data from %s" % args.infile)
-    if args.f:
-        records_in = load_data(args.infile, header="file")
-        # TODO: Field parsing, guessing and confirming
-    elif args.c:
-        records_in = load_data(args.infile, header="none")
-        # TODO: Pick the fields, confirm(?), add to data structure
+
+    if args.skip:
+        print("Skipping header row")
+        has_header = True
     else:
-        records_in = load_data(args.infile, header="default")
+        has_header = False
+
+    if args.fields:
+        records_in = load_data(args.infile, fields="file", hasheader=True)  # -f flag implies there must be a header!
+        # TODO: Field parsing, guessing and confirming
+    elif args.columns:
+        records_in = load_data(args.infile, fields="none", hasheader=has_header)
+        # Type the inputs
+        columns = []
+        for column in args.columns:
+            try:
+                column = int(column)
+            except TypeError:
+                column = None
+            finally:
+                columns.append(column)
+        # Check the highest input is not greater than the number of fields
+        if len(records_in[0]) < max(columns):
+            sys.exit("Input column (%s) is greater than the number of fields in the CSV file (%s)"
+                     % (max(columns), len(records_in[0])))
+        # Confirm with user that the selected columns are correct
+        print("Selected columns would provide this data for the first entry:")
+        print("ISBN: %s" % records_in[0][columns[0]])
+        print("ISSN: %s" % records_in[0][columns[1]])
+        print("Author: %s" % records_in[0][columns[2]])
+        print("Title: %s" % records_in[0][columns[3]])
+        print()
+        answer = raw_input("Is this correct? (Y/N): ")
+        if answer in ["y", "Y"]:
+            pass
+        else:
+            sys.exit()
+    else:
+        records_in = load_data(args.infile, fields="default", hasheader=has_header)
+        columns = default_fields
 
     print("Loaded %s records" % len(records_in))
 
     records_out = []
     for row in records_in:
         print("Processing record %s" % row["id"])
-        row_out = process_row(row)
+        row_out = process_row(row, columns)
         records_out.append(row)
 
     print("Finished processing, writing to file %s" % args.outfile)
