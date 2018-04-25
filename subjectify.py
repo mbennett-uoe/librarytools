@@ -3,7 +3,7 @@
 
 """subjectify.py: A tool to retrieve DDC/LCC identifiers from OCLC's Classify API
 
-Version: 1.1
+Version: 1.2
 Author: Mike Bennett <mike.bennett@ed.ac.uk>
 
 Python library requirements: requests
@@ -16,7 +16,7 @@ new CSV file.
 Usage: 'subjectify.py infile.csv outfile.csv'
 """
 
-import sys, os, csv  # standard python libs
+import sys, os, csv, argparse  # standard python libs
 import xml.etree.ElementTree as ET  # standard python libs
 import requests  # external dependency
 
@@ -226,17 +226,25 @@ def process_row(row):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) < 3:
-        sys.exit("Not enough arguments! Usage: subjectify.py infile.csv outfile.csv")
 
-    print("""
-    subjectify.py: A tool to retrieve DDC/LCC identifiers from OCLC's Classify API
-    ==============================================================================
+    parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
+                                     description="""A tool to retrieve DDC/LCC identifiers from OCLC's Classify API
     
-    """)
+Expects an input CSV of 4 columns: ISBN,ISSN,Author,Title
+For other formats:
+    -f will attempt to work out the right columns and will prompt for assistance if needed
+    -c allows you to provide column numbers for the data""")
 
-    infile = sys.argv[1]
-    outfile = sys.argv[2]
+    parser.add_argument("-v", "--verbose", action="store_true", help="Display extra messages (search details etc)")
+    parser.add_argument("-f", "--fields", action="store_true",
+                        help="Read field names from first line of CSV file and attempt to automagically determine \
+                             correct columns")
+    parser.add_argument("-c", dest="columns", nargs=4, metavar=('0', '1', '2', '3'),
+                        help="Supply 0-based column numbers for ISBN, ISSN, Author and Title. If particular data \
+                             not present, use 'None'")
+    parser.add_argument("infile", help="Input CSV file")
+    parser.add_argument("outfile", help="Output CSV file")
+    args = parser.parse_args()
 
     print("Loading data from %s" % infile)
     count = load_data(infile)
