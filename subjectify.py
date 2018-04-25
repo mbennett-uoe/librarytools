@@ -3,7 +3,7 @@
 
 """subjectify.py: A tool to retrieve DDC/LCC identifiers from OCLC's Classify API
 
-Version: 1.2
+Version: 1.3
 Author: Mike Bennett <mike.bennett@ed.ac.uk>
 
 Python library requirements: requests
@@ -82,13 +82,14 @@ def oclc_search(searchtype, data):
     """Query OCLC endpoint
 
     Valid searchtype values:
-        isbn (Either ISBN10 or ISBN13 identifier)
-        issn (ISSN-L preferred but p-ISSN or e-ISSN will work)
-        bib  (Use Author/Title data)
-        wi   (OCLC "work index" identifier)
+        isbn  (Either ISBN10 or ISBN13 identifier)
+        issn  (ISSN-L preferred but p-ISSN or e-ISSN will work)
+        title (Exact match search)
+        bib   (Title and Author search)
+        wi    (OCLC "work index" identifier)
 
-    Data should be either a string object for ISBN/ISSN/WI or
-    a two-value string tuple of (<author>, <name>) as appropriate.
+    Data should be either a string object for ISBN/ISSN/WI/Title or
+    a two-value string tuple of (<title>, <author>) as appropriate.
 
     Returns one of:
         A string of XML data on successful query
@@ -97,9 +98,11 @@ def oclc_search(searchtype, data):
     """
 
     # Basic sanity checks and query forming
-    if searchtype in ['isbn', 'issn', 'wi']:
+    if searchtype in ['isbn', 'issn', 'wi', 'title']:
         if type(data) != str:
             return False
+        if searchtype == "title":
+            data = "\"" + data + "\""
         query = "%s=%s" % (searchtype, data)
     elif searchtype == "bib":
         if type(data) != tuple:
@@ -194,15 +197,19 @@ def process_row(row, columns):
     search_type = None
     data = None
 
-    if row["author"] != "" and row["title"] != "":
-        search_type = "bib"
-        data = (row["author"], row["title"])
-    if row["issn"] != "":
+    if row[columns[3]] != "":  # title
+        if row[columns[2]] != "":  # author
+            search_type = "bib"
+            data = (row[columns[3]], row[columns[2]])
+        else:
+            search_type = "title"
+            data = row[columns[3]]
+    if row[columns[1]] != "":  # issn
         search_type = "issn"
-        data = row["issn"]
-    if row["isbn"] != "":
+        data = row[colummns[1]]
+    if row[columns[0]] != "":  # isbn
         search_type = "isbn"
-        data = row["isbn"]
+        data = row[columns[0]]
 
     if search_type is None:
         return None

@@ -1,4 +1,4 @@
-id,isbn,issn,author,title,ddc,lcc
+id,isbn,issn,author name,maybe a title,ddc,lcc
 1,0439784549,,,,,
 2,,,"Hawking, Stephen","A brief history of time",,
 3,,,,"Harry Potter",,
