@@ -25,6 +25,7 @@ base_querystring = "?summary=true&maxRecs=1"
 ns = {"classify": "http://classify.oclc.org"}  # xml namespace
 default_fields = ["isbn", "issn", "author", "title"]  # default csv fields
 verbose = False  # was program started with -v?
+exact_searches = True  # exact match flag
 
 
 def load_data(infile, fields="default", skipheader = False):
@@ -81,7 +82,7 @@ def get_tree(xmldata):
         return None
 
 
-def oclc_search(searchtype, data):
+def oclc_search(searchtype, data, exact=True):
     """Query OCLC endpoint
 
     Valid searchtype values:
@@ -104,7 +105,7 @@ def oclc_search(searchtype, data):
     if searchtype in ['isbn', 'issn', 'wi', 'title']:
         if type(data) != str:
             return False
-        if searchtype == "title":
+        if searchtype == "title" and exact:
             data = "\"" + data + "\""
         query = "%s=%s" % (searchtype, data)
     elif searchtype == "bib":
@@ -113,7 +114,10 @@ def oclc_search(searchtype, data):
         if len(data) != 2:
             return False
         author, title = data
-        query = "author=\"%s\"&title=\"%s\"" % (author, title)
+        if exact:
+            query = "author=\"%s\"&title=\"%s\"" % (author, title)
+        else:
+            query = "author=%s&title=%s" % (author, title)
     else:
         # invalid searchtype
         return False
@@ -223,7 +227,7 @@ def process_row(row, columns):
     if search_type is None:
         return row
     # Make the first query and check the status
-    record = oclc_search(search_type, data)
+    record = oclc_search(search_type, data, exact_searches)
     status = extract_response(record)
 
     if status is None or status >= 100:
@@ -294,6 +298,7 @@ For other formats:
                         help="Supply 0-based column numbers for ISBN, ISSN, Author and Title. If particular data \
                              not present, use 'None'")
     parser.add_argument("-s", "--skip", action="store_true", help="Treat first line of input CSV as a header and skip")
+    parser.add_argument("-n", "--non-exact", action="store_true", help="Allow non-exact matching of author and title")
     parser.add_argument("infile", help="Input CSV file")
     parser.add_argument("outfile", help="Output CSV file")
     args = parser.parse_args()
