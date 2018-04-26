@@ -420,7 +420,7 @@ For other formats:
         if (index + 1) % 10 == 0:
             if (index + 1) % 250 == 0:
                 print("Rate limiter - sleeping 5 minutes")
-                time.sleep(355)
+                time.sleep(300)
             else:
                 print("Rate limiter - sleeping 5 seconds")
                 time.sleep(5)
