@@ -251,6 +251,7 @@ def process_row(row, columns, skip_columns = None):
         # Error or no input, return the unaltered input row
         return row
     elif status in [0, 2]:
+        vprint("Single record found")
         # Single work record, go to extraction
         if type(row) == dict:
             row["ddc"], row["lcc"] = extract_ids(record)
@@ -259,6 +260,7 @@ def process_row(row, columns, skip_columns = None):
         return row
 
     elif status == 4:
+        vprint("Multiple records found")
         # Multi-work record, attempt to resolve
         wi = resolve_multiple(record)
         if wi:
