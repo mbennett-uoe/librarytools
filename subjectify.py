@@ -3,7 +3,7 @@
 
 """subjectify.py: A tool to retrieve DDC/LCC identifiers from OCLC's Classify API
 
-Version: 1.5
+Version: 1.6
 Author: Mike Bennett <mike.bennett@ed.ac.uk>
 
 Python library requirements: requests
