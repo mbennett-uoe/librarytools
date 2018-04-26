@@ -203,7 +203,7 @@ def resolve_multiple(record_xml):
         return wi
 
 
-def process_row(row, columns):
+def process_row(row, columns, skip_columns = None):
     """Process a row from the csv file. Main per-record logic"""
 
     # Determine whether we are matching against ISBN/ISSN or bibliographic data
@@ -299,6 +299,8 @@ For other formats:
                              not present, use 'None'")
     parser.add_argument("-s", "--skip", action="store_true", help="Treat first line of input CSV as a header and skip")
     parser.add_argument("-n", "--non-exact", action="store_true", help="Allow non-exact matching of author and title")
+    parser.add_argument("-e", "--except", help="Supply a comma separated list of column names, rows with data in any of \
+                                               these columns will be skipped")
     parser.add_argument("infile", help="Input CSV file")
     parser.add_argument("outfile", help="Output CSV file")
     args = parser.parse_args()
@@ -307,6 +309,10 @@ For other formats:
     if args.verbose:
         print("Enabling verbose mode")
         verbose = True
+
+    if args.non_exact:
+        print("Enabling non-exact matches")
+        exact_searches = False
 
     print("Loading data from %s" % args.infile)
 
@@ -375,7 +381,7 @@ For other formats:
     records_out = []
     for index, row in enumerate(records_in):
         print("Processing record %s" % (index+1))
-        row_out = process_row(row, columns)
+        row_out = process_row(row, columns, skip_columns)
         records_out.append(row_out)
 
         # Rate limiter, sleep 5s every 10 records and 5m every 250
