@@ -417,8 +417,8 @@ For other formats:
         records_out.append(row_out)
 
         # Rate limiter, sleep 5s every 10 records and 5m every 250
-        if index+1 % 10 == 0:
-            if index+1 % 250 == 0:
+        if (index + 1) % 10 == 0:
+            if (index + 1) % 250 == 0:
                 print("Rate limiter - sleeping 5 minutes")
                 time.sleep(355)
             else:
