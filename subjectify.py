@@ -206,6 +206,16 @@ def resolve_multiple(record_xml):
 def process_row(row, columns, skip_columns = None):
     """Process a row from the csv file. Main per-record logic"""
 
+    # Does row already have data in any of the skip_columns?
+    if skip_columns:
+        skip = False
+        for column in skip_columns:
+            if row[column] != "":
+                vprint("Data found in column %s, skipping row" % column)
+                skip = True
+        if skip:
+            return row
+
     # Determine whether we are matching against ISBN/ISSN or bibliographic data
     # Start from least preferable and check each type, keeping current best in state variable
     search_type = None
@@ -299,13 +309,17 @@ For other formats:
                              not present, use 'None'")
     parser.add_argument("-s", "--skip", action="store_true", help="Treat first line of input CSV as a header and skip")
     parser.add_argument("-n", "--non-exact", action="store_true", help="Allow non-exact matching of author and title")
-    parser.add_argument("-e", "--except", help="Supply a comma separated list of column names, rows with data in any of \
-                                               these columns will be skipped")
+    parser.add_argument("-e", "--except", dest="skip_columns", help="Supply a comma separated list of column names, \
+                                                                rows with data in any of these columns will be skipped")
     parser.add_argument("infile", help="Input CSV file")
     parser.add_argument("outfile", help="Output CSV file")
     args = parser.parse_args()
 
     print("subjectify.py: A tool to retrieve DDC/LCC identifiers from OCLC's Classify API\n")
+
+    if args.columns and args.skip_columns:
+        sys.exit("-e option is currently incompatible with -c")
+
     if args.verbose:
         print("Enabling verbose mode")
         verbose = True
@@ -376,17 +390,26 @@ For other formats:
         output_fields = default_fields + ["ddc", "lcc"]
         columns = default_fields
 
+    if args.skip_columns:
+        skip_columns = args.skip_columns.split(",")
+        print("Checking existence of fields for row skipping: %s" % skip_columns)
+        skip_columns_lower = [data.lower() for data in skip_columns]
+        valid_skip_columns = [column for column in records_in[0].keys() if column.lower() in skip_columns_lower]
+        print("Fields found for row skipping: %s" % valid_skip_columns)
+    else:
+        valid_skip_columns = None
+
     print("Loaded %s records" % len(records_in))
 
     records_out = []
     for index, row in enumerate(records_in):
         print("Processing record %s" % (index+1))
-        row_out = process_row(row, columns, skip_columns)
+        row_out = process_row(row, columns, valid_skip_columns)
         records_out.append(row_out)
 
         # Rate limiter, sleep 5s every 10 records and 5m every 250
-        if index % 10 == 0:
-            if index % 250 == 0:
+        if index+1 % 10 == 0:
+            if index+1 % 250 == 0:
                 print("Rate limiter - sleeping 5 minutes")
                 time.sleep(355)
             else:
