@@ -56,9 +56,16 @@ def load_data(infile, fields="default", skipheader = False):
 
 def write_data(outfile, records, fields):
     """Write the data in the state object to file and return boolean success indicator"""
+
     try:
         with open(outfile, "wb") as csvfile:
             if fields is not None:
+                # Make sure we have lcc and ddc fields in the list
+                if "lcc" not in fields:
+                    fields.append("lcc")
+                if "ddc" not in fields:
+                    fields.append("ddc")
+
                 writer = csv.DictWriter(csvfile, fieldnames=fields, lineterminator="\n")
                 writer.writeheader()
             else:
@@ -338,7 +345,7 @@ For other formats:
 
     if args.fields:
         records_in = load_data(args.infile, fields="file", skipheader=False)  # -f flag implies there must be a header!
-        output_fields = records_in[0].keys() + ["ddc", "lcc"]
+        output_fields = records_in[0].keys()
         # Lets see if we can find the fields automatically
         file_fields = records_in[0].keys()
         potentials = {"ISBN": None,
@@ -387,7 +394,7 @@ For other formats:
     else:
         # Maybe could add a confirmation here in line with the other modes?
         records_in = load_data(args.infile, fields="default", skipheader=skip_header)
-        output_fields = default_fields + ["ddc", "lcc"]
+        output_fields = default_fields
         columns = default_fields
 
     if args.skip_columns:
