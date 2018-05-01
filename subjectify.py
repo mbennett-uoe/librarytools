@@ -261,7 +261,7 @@ def process_row(row, columns, skip_columns = None):
 
     if status is None or status >= 100:
         # Error or no input, return the unaltered input row
-        vprint("Error or no result, adding to cache with key %s" % (search_type, data))
+        vprint("Error or no result, adding to cache with key (%s, %s)" %(search_type, data))
         searches_seen[(search_type, data)] = {"ddc": None, "lcc": None}
         return row
     elif status in [0, 2]:
@@ -298,11 +298,11 @@ def process_row(row, columns, skip_columns = None):
                     searches_seen[(search_type, data)] = {"ddc": row[-2], "lcc": row[-1]}
                 return row
             else:
-                vprint("Parent record not found, adding nil result to cache with key %s" % (search_type, data))
+                vprint("Parent record not found, adding nil result to cache with key (%s, %s)" %(search_type, data))
                 searches_seen[(search_type, data)] = {"ddc": None, "lcc": None}
                 return row
         else:
-            vprint("Parent record not found, adding nil result to cache with key %s" % (search_type, data))
+            vprint("Parent record not found, adding nil result to cache with key (%s, %s)" %(search_type, data))
             searches_seen[(search_type, data)] = {"ddc": None, "lcc": None}
             return row
 
@@ -439,7 +439,6 @@ For other formats:
         valid_skip_columns = None
 
     print("Loaded %s records" % len(records_in))
-
     records_out = []
     for index, row in enumerate(records_in):
         print("Processing record %s" % (index+1))
