@@ -3,7 +3,7 @@
 
 """subjectify.py: A tool to retrieve DDC/LCC identifiers from OCLC's Classify API
 
-Version: 1.6
+Version: 1.7
 Author: Mike Bennett <mike.bennett@ed.ac.uk>
 
 Python library requirements: requests
@@ -26,6 +26,7 @@ ns = {"classify": "http://classify.oclc.org"}  # xml namespace
 default_fields = ["isbn", "issn", "author", "title"]  # default csv fields
 verbose = False  # was program started with -v?
 exact_searches = True  # exact match flag
+searches_seen = {}  # local cache to prevent duplicate queries
 
 
 def load_data(infile, fields="default", skipheader = False):
@@ -243,20 +244,32 @@ def process_row(row, columns, skip_columns = None):
 
     if search_type is None:
         return row
+
+    # See if the search has been done before
+    if (search_type, data) in searches_seen:
+        if type(row) == dict:
+            row["ddc"], row["lcc"] = searches_seen[(search_type, data)]["ddc"], searches_seen[(search_type, data)]["lcc"]
+        elif type(row) == list:
+            row.extend(searches_seen[(search_type, data)]["ddc"], searches_seen[(search_type, data)]["lcc"])
+        return row
+
     # Make the first query and check the status
     record = oclc_search(search_type, data, exact_searches)
     status = extract_response(record)
 
     if status is None or status >= 100:
         # Error or no input, return the unaltered input row
+        searches_seen[(search_type, data)] = {"ddc": None, "lcc": None}
         return row
     elif status in [0, 2]:
         vprint("Single record found")
         # Single work record, go to extraction
         if type(row) == dict:
             row["ddc"], row["lcc"] = extract_ids(record)
+            searches_seen[(search_type, data)] = {"ddc": row["ddc"], "lcc": row["lcc"]}
         elif type(row) == list:
             row.extend(extract_ids(record))
+            searches_seen[(search_type, data)] = {"ddc": row[-2], "lcc": row[-1]}
         return row
 
     elif status == 4:
@@ -270,11 +283,17 @@ def process_row(row, columns, skip_columns = None):
                 # Resolved, extract the IDs
                 if type(row) == dict:
                     row["ddc"], row["lcc"] = extract_ids(parent_record)
+                    searches_seen[(search_type, data)] = {"ddc": row["ddc"], "lcc": row["lcc"]}
                 elif type(row) == list:
                     row.extend(extract_ids(parent_record))
+                    searches_seen[(search_type, data)] = {"ddc": row[-2], "lcc": row[-1]}
                 return row
             else:
-                return None
+                searches_seen[(search_type, data)] = {"ddc": None, "lcc": None}
+                return row
+        else:
+            searches_seen[(search_type, data)] = {"ddc": None, "lcc": None}
+            return row
 
 
 def find_field(field, columns):
