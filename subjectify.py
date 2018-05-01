@@ -247,6 +247,7 @@ def process_row(row, columns, skip_columns = None):
 
     # See if the search has been done before
     if (search_type, data) in searches_seen:
+        vprint("Result for this object found in cache")
         if type(row) == dict:
             row["ddc"], row["lcc"] = searches_seen[(search_type, data)]["ddc"], searches_seen[(search_type, data)]["lcc"]
         elif type(row) == list:
@@ -254,11 +255,13 @@ def process_row(row, columns, skip_columns = None):
         return row
 
     # Make the first query and check the status
+    vprint("Performing search of type %s with data %s" % (search_type, data))
     record = oclc_search(search_type, data, exact_searches)
     status = extract_response(record)
 
     if status is None or status >= 100:
         # Error or no input, return the unaltered input row
+        vprint("Error or no result, adding to cache with key %s" % (search_type, data))
         searches_seen[(search_type, data)] = {"ddc": None, "lcc": None}
         return row
     elif status in [0, 2]:
@@ -266,9 +269,11 @@ def process_row(row, columns, skip_columns = None):
         # Single work record, go to extraction
         if type(row) == dict:
             row["ddc"], row["lcc"] = extract_ids(record)
+            vprint("Adding result dcc: %s lcc: %s to cache with key %s"%(row["ddc"], row["lcc"], (search_type, data)))
             searches_seen[(search_type, data)] = {"ddc": row["ddc"], "lcc": row["lcc"]}
         elif type(row) == list:
             row.extend(extract_ids(record))
+            vprint("Adding result dcc: %s lcc: %s to cache with key %s" % (row[-2], row[-1], (search_type, data)))
             searches_seen[(search_type, data)] = {"ddc": row[-2], "lcc": row[-1]}
         return row
 
@@ -277,21 +282,27 @@ def process_row(row, columns, skip_columns = None):
         # Multi-work record, attempt to resolve
         wi = resolve_multiple(record)
         if wi:
+            vprint("Parent ID found: %s" % wi)
             parent_record = oclc_search("wi", wi)
             parent_status = extract_response(parent_record)
             if parent_status in [0, 2]:
+                vprint("Parent record found")
                 # Resolved, extract the IDs
                 if type(row) == dict:
                     row["ddc"], row["lcc"] = extract_ids(parent_record)
+                    vprint("Adding result dcc: %s lcc: %s to cache with key %s" % (row["ddc"], row["lcc"], (search_type, data)))
                     searches_seen[(search_type, data)] = {"ddc": row["ddc"], "lcc": row["lcc"]}
                 elif type(row) == list:
                     row.extend(extract_ids(parent_record))
+                    vprint("Adding result dcc: %s lcc: %s to cache with key %s" % (row[-2], row[-1], (search_type, data)))
                     searches_seen[(search_type, data)] = {"ddc": row[-2], "lcc": row[-1]}
                 return row
             else:
+                vprint("Parent record not found, adding nil result to cache with key %s" % (search_type, data))
                 searches_seen[(search_type, data)] = {"ddc": None, "lcc": None}
                 return row
         else:
+            vprint("Parent record not found, adding nil result to cache with key %s" % (search_type, data))
             searches_seen[(search_type, data)] = {"ddc": None, "lcc": None}
             return row
 
