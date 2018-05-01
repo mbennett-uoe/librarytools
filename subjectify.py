@@ -3,7 +3,7 @@
 
 """subjectify.py: A tool to retrieve DDC/LCC identifiers from OCLC's Classify API
 
-Version: 1.7
+Version: 1.8
 Author: Mike Bennett <mike.bennett@ed.ac.uk>
 
 Python library requirements: requests
@@ -212,7 +212,7 @@ def resolve_multiple(record_xml):
 
 
 def process_row(row, columns, skip_columns = None):
-    """Process a row from the csv file. Main per-record logic"""
+    """Process a row from the csv file. Main per-record logic. Return row and boolean for whether a query was made"""
 
     # Does row already have data in any of the skip_columns?
     if skip_columns:
@@ -222,7 +222,7 @@ def process_row(row, columns, skip_columns = None):
                 vprint("Data found in column %s, skipping row" % column)
                 skip = True
         if skip:
-            return row
+            return row, False
 
     # Determine whether we are matching against ISBN/ISSN or bibliographic data
     # Start from least preferable and check each type, keeping current best in state variable
@@ -243,7 +243,7 @@ def process_row(row, columns, skip_columns = None):
         data = row[columns[0]]
 
     if search_type is None:
-        return row
+        return row, False
 
     # See if the search has been done before
     if (search_type, data) in searches_seen:
@@ -252,7 +252,7 @@ def process_row(row, columns, skip_columns = None):
             row["ddc"], row["lcc"] = searches_seen[(search_type, data)]["ddc"], searches_seen[(search_type, data)]["lcc"]
         elif type(row) == list:
             row.extend(searches_seen[(search_type, data)]["ddc"], searches_seen[(search_type, data)]["lcc"])
-        return row
+        return row, False
 
     # Make the first query and check the status
     vprint("Performing search of type %s with data %s" % (search_type, data))
@@ -263,7 +263,7 @@ def process_row(row, columns, skip_columns = None):
         # Error or no input, return the unaltered input row
         vprint("Error or no result, adding to cache with key (%s, %s)" %(search_type, data))
         searches_seen[(search_type, data)] = {"ddc": None, "lcc": None}
-        return row
+        return row, True
     elif status in [0, 2]:
         vprint("Single record found")
         # Single work record, go to extraction
@@ -275,7 +275,7 @@ def process_row(row, columns, skip_columns = None):
             row.extend(extract_ids(record))
             vprint("Adding result dcc: %s lcc: %s to cache with key %s" % (row[-2], row[-1], (search_type, data)))
             searches_seen[(search_type, data)] = {"ddc": row[-2], "lcc": row[-1]}
-        return row
+        return row, True
 
     elif status == 4:
         vprint("Multiple records found")
@@ -296,15 +296,15 @@ def process_row(row, columns, skip_columns = None):
                     row.extend(extract_ids(parent_record))
                     vprint("Adding result dcc: %s lcc: %s to cache with key %s" % (row[-2], row[-1], (search_type, data)))
                     searches_seen[(search_type, data)] = {"ddc": row[-2], "lcc": row[-1]}
-                return row
+                return row, True
             else:
                 vprint("Parent record not found, adding nil result to cache with key (%s, %s)" %(search_type, data))
                 searches_seen[(search_type, data)] = {"ddc": None, "lcc": None}
-                return row
+                return row, True
         else:
             vprint("Parent record not found, adding nil result to cache with key (%s, %s)" %(search_type, data))
             searches_seen[(search_type, data)] = {"ddc": None, "lcc": None}
-            return row
+            return row, True
 
 
 def find_field(field, columns):
@@ -440,20 +440,22 @@ For other formats:
 
     print("Loaded %s records" % len(records_in))
     records_out = []
+    query_count = 0
     for index, row in enumerate(records_in):
         print("Processing record %s" % (index+1))
-        row_out = process_row(row, columns, valid_skip_columns)
+        row_out, made_query = process_row(row, columns, valid_skip_columns)
         records_out.append(row_out)
 
+        if made_query:
+            query_count += 1
         # Rate limiter, sleep 5s every 10 records and 5m every 250
-        if (index + 1) % 10 == 0:
-            if (index + 1) % 250 == 0:
-                print("Rate limiter - sleeping 5 minutes")
+        if query_count % 10 == 0:
+            if query_count % 250 == 0:
+                print("Rate limiter - 250 queries - sleeping 5 minutes")
                 time.sleep(300)
             else:
-                print("Rate limiter - sleeping 5 seconds")
+                print("Rate limiter - 10 queries - sleeping 5 seconds")
                 time.sleep(5)
-
 
     print("Finished processing, writing to file %s" % args.outfile)
     write_data(args.outfile, records_out, output_fields)
