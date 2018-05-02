@@ -373,6 +373,13 @@ For other formats:
         print("Enabling non-exact matches")
         exact_searches = False
 
+    if args.rate:
+        print("Enabling alternate rate limiter")
+        rate_config = {"small_count": 10,  # How often to trigger small delay
+                       "small_sleep": 5,  # Length of small delay in seconds
+                       "large_count": 250,  # How often to trigger large delay
+                       "large_sleep": 300}  # Length of large delay in seconds
+
     print("Loading data from %s" % args.infile)
 
     if args.skip:
