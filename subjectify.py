@@ -446,6 +446,7 @@ For other formats:
     print("Loaded %s records" % len(records_in))
     records_out = []
     query_count = 0
+    query_since_sleep = False
     for index, row in enumerate(records_in):
         print("Processing record %s" % (index+1))
         row_out, made_query = process_row(row, columns, valid_skip_columns)
@@ -453,16 +454,20 @@ For other formats:
 
         if made_query:
             query_count += 1
+            query_since_sleep = True
 
         # Rate limiter, small and large sleeps based on config
         if query_count % rate_config["small_count"] == 0:
-            if query_count % rate_config["large_count"] == 0:
-                m, s = divmod(rate_config["large_sleep"], 60)
-                print("Rate limiter - %s queries - sleeping %s minutes %s seconds" % (rate_config["large_count"], m, s))
-                time.sleep(rate_config["large_sleep"])
-            else:
-                print("Rate limiter - %s queries - sleeping %s seconds" % (rate_config["small_count"], rate_config["small_sleep"]))
-                time.sleep(rate_config["small_sleep"])
+            if query_since_sleep:
+                if query_count % rate_config["large_count"] == 0:
+                    m, s = divmod(rate_config["large_sleep"], 60)
+                    print("Rate limiter - %s queries - sleeping %s minutes %s seconds" % (rate_config["large_count"], m, s))
+                    time.sleep(rate_config["large_sleep"])
+                    query_since_sleep = False
+                else:
+                    print("Rate limiter - %s queries - sleeping %s seconds" % (rate_config["small_count"], rate_config["small_sleep"]))
+                    time.sleep(rate_config["small_sleep"])
+                    query_since_sleep = False
 
     print("Finished processing, writing to file %s" % args.outfile)
     write_data(args.outfile, records_out, output_fields)
