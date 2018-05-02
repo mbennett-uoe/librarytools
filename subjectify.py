@@ -27,6 +27,10 @@ default_fields = ["isbn", "issn", "author", "title"]  # default csv fields
 verbose = False  # was program started with -v?
 exact_searches = True  # exact match flag
 searches_seen = {}  # local cache to prevent duplicate queries
+rate_config = {"small_count": 25,  # How often to trigger small delay
+               "small_sleep": 10,  # Length of small delay in seconds
+               "large_count": 250,  # How often to trigger large delay
+               "large_sleep": 120}  # Length of large delay in seconds
 
 
 def load_data(infile, fields="default", skipheader = False):
@@ -350,6 +354,7 @@ For other formats:
     parser.add_argument("-n", "--non-exact", action="store_true", help="Allow non-exact matching of author and title")
     parser.add_argument("-e", "--except", dest="skip_columns", help="Supply a comma separated list of column names, \
                                                                 rows with data in any of these columns will be skipped")
+    parser.add_argument("-r", "--rate", action="store_true", help="Enable the alternate rate limiter")
     parser.add_argument("infile", help="Input CSV file")
     parser.add_argument("outfile", help="Output CSV file")
     args = parser.parse_args()
@@ -448,14 +453,16 @@ For other formats:
 
         if made_query:
             query_count += 1
-        # Rate limiter, sleep 5s every 10 records and 5m every 250
-        if query_count % 10 == 0:
-            if query_count % 250 == 0:
-                print("Rate limiter - 250 queries - sleeping 5 minutes")
-                time.sleep(300)
+
+        # Rate limiter, small and large sleeps based on config
+        if query_count % rate_config["small_count"] == 0:
+            if query_count % rate_config["large_count"] == 0:
+                m, s = divmod(rate_config["large_sleep"], 60)
+                print("Rate limiter - %s queries - sleeping %s minutes %s seconds" % (rate_config["large_count"], m, s))
+                time.sleep(rate_config["large_sleep"])
             else:
-                print("Rate limiter - 10 queries - sleeping 5 seconds")
-                time.sleep(5)
+                print("Rate limiter - %s queries - sleeping %s seconds" % (rate_config["small_count"], rate_config["small_sleep"]))
+                time.sleep(rate_config["small_sleep"])
 
     print("Finished processing, writing to file %s" % args.outfile)
     write_data(args.outfile, records_out, output_fields)
