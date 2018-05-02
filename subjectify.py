@@ -355,6 +355,7 @@ For other formats:
     parser.add_argument("-e", "--except", dest="skip_columns", help="Supply a comma separated list of column names, \
                                                                 rows with data in any of these columns will be skipped")
     parser.add_argument("-r", "--rate", action="store_true", help="Enable the alternate rate limiter")
+    parser.add_argument("-w", "--write", action="store_true", help="Enable writing of output during long sleeps")
     parser.add_argument("infile", help="Input CSV file")
     parser.add_argument("outfile", help="Output CSV file")
     args = parser.parse_args()
@@ -460,6 +461,9 @@ For other formats:
         if query_count % rate_config["small_count"] == 0:
             if query_since_sleep:
                 if query_count % rate_config["large_count"] == 0:
+                    if args.write:
+                        vprint("Writing progress so far to %s" % args.outfile)
+                        write_data(args.outfile, records_out, output_fields)
                     m, s = divmod(rate_config["large_sleep"], 60)
                     print("Rate limiter - %s queries - sleeping %s minutes %s seconds" % (rate_config["large_count"], m, s))
                     time.sleep(rate_config["large_sleep"])
