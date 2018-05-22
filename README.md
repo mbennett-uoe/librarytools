@@ -4,3 +4,6 @@ A collection of tools for a collection of library purposes built by a collection
 ### subjectify
 Subjectify is a tool to automatically obtain DDC and LCC codes using OCLC's [Classify2](https://platform.worldcat.org/api-explorer/apis/Classify) service.
 It uses author, title, ISBN and ISSN data taken from a provided CSV file, with different options for how to locate the relevant fields.
+
+### datecounter
+A very simple utility to group a folder's files by modification date and return counts for each date represented.
