@@ -1,3 +1,9 @@
+""" datecounter.py
+A small utility to return a sorted list of file modification dates along with counts.
+Usage: datecounter.py [directory]
+If no directory is supplied, the current path will be used.
+"""
+
 import os, sys
 from datetime import datetime
 
